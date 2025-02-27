@@ -21,9 +21,7 @@ class SettingsController extends ClientApiController
      */
     public function __construct(
         private ReinstallServerService $reinstallServerService
-    ) {
-        parent::__construct();
-    }
+    ) {}
 
     /**
      * Renames a server.
@@ -49,7 +47,7 @@ class SettingsController extends ClientApiController
      */
     public function description(DescriptionServerRequest $request, Server $server): JsonResponse
     {
-        $description = $request->has('description') ? $request->input('description') : $server->description;
+        $description = $request->input('description', $server->description);
 
         if ($server->description !== $description && config('panel.editable_server_descriptions')) {
             Activity::event('server:settings.description')
