@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Contracts\Validatable;
 use App\Enums\ContainerStatus;
 use App\Enums\ServerResourceType;
 use App\Enums\ServerState;
 use App\Repositories\Daemon\DaemonServerRepository;
+use App\Traits\HasValidation;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Notifications\Notifiable;
@@ -121,8 +125,10 @@ use App\Services\Subusers\SubuserDeletionService;
  * @method static \Illuminate\Database\Eloquent\Builder|Server wherePorts($value)
  * @method static \Illuminate\Database\Eloquent\Builder|Server whereUuidShort($value)
  */
-class Server extends Model
+class Server extends Model implements Validatable
 {
+    use HasFactory;
+    use HasValidation;
     use Notifiable;
 
     /**
@@ -130,11 +136,6 @@ class Server extends Model
      * API representation using fractal. Also used as name for api key permissions.
      */
     public const RESOURCE_NAME = 'server';
-
-    /**
-     * The table associated with the model.
-     */
-    protected $table = 'servers';
 
     /**
      * Default values when creating the model. We want to switch to disabling OOM killer
@@ -342,6 +343,9 @@ class Server extends Model
         return $this->hasOne(ServerTransfer::class)->whereNull('successful')->orderByDesc('id');
     }
 
+    /**
+     * @return HasMany<Backup, $this>
+     */
     public function backups(): HasMany
     {
         return $this->hasMany(Backup::class);
@@ -358,11 +362,6 @@ class Server extends Model
     public function activity(): MorphToMany
     {
         return $this->morphToMany(ActivityLog::class, 'subject', 'activity_log_subjects');
-    }
-
-    public function getRouteKeyName(): string
-    {
-        return 'id';
     }
 
     public function resolveRouteBinding($value, $field = null): ?self
@@ -458,6 +457,9 @@ class Server extends Model
         }
 
         if ($type === ServerResourceType::Time) {
+            if ($this->isSuspended()) {
+                return 'Suspended';
+            }
             if ($resourceAmount === 0) {
                 return 'Offline';
             }
@@ -484,7 +486,7 @@ class Server extends Model
     public function condition(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->status?->value ?? $this->retrieveStatus(),
+            get: fn () => $this->isSuspended() ? ServerState::Suspended->value : $this->status->value ?? $this->retrieveStatus(),
         );
     }
 

@@ -2,9 +2,13 @@
 
 namespace App\Models;
 
+use App\Contracts\Validatable;
 use App\Exceptions\Service\HasActiveServersException;
 use App\Repositories\Daemon\DaemonConfigurationRepository;
+use App\Traits\HasValidation;
 use Exception;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -47,8 +51,10 @@ use Symfony\Component\Yaml\Yaml;
  * @property \App\Models\Allocation[]|\Illuminate\Database\Eloquent\Collection $allocations
  * @property int|null $allocations_count
  */
-class Node extends Model
+class Node extends Model implements Validatable
 {
+    use HasFactory;
+    use HasValidation;
     use Notifiable;
 
     /**
@@ -60,11 +66,6 @@ class Node extends Model
     public const DAEMON_TOKEN_ID_LENGTH = 16;
 
     public const DAEMON_TOKEN_LENGTH = 64;
-
-    /**
-     * The table associated with the model.
-     */
-    protected $table = 'nodes';
 
     /**
      * The attributes excluded from the model's JSON form.
@@ -146,11 +147,6 @@ class Node extends Model
 
     public int $servers_sum_cpu = 0;
 
-    public function getRouteKeyName(): string
-    {
-        return 'id';
-    }
-
     protected static function booted(): void
     {
         static::creating(function (self $node) {
@@ -201,7 +197,7 @@ class Node extends Model
                 ],
             ],
             'allowed_mounts' => $this->mounts->pluck('source')->toArray(),
-            'remote' => route('index'),
+            'remote' => route('filament.app.resources...index'),
         ];
     }
 
@@ -307,10 +303,9 @@ class Node extends Model
     {
         return once(function () {
             try {
-                // @phpstan-ignore-next-line
-                return resolve(DaemonConfigurationRepository::class)
+                return (new DaemonConfigurationRepository())
                     ->setNode($this)
-                    ->getSystemInformation(connectTimeout: 3);
+                    ->getSystemInformation();
             } catch (Exception $exception) {
                 $message = str($exception->getMessage());
 
@@ -374,23 +369,20 @@ class Node extends Model
     {
         return cache()->remember("nodes.$this->id.ips", now()->addHour(), function () {
             $ips = collect();
-            if (is_ip($this->fqdn)) {
-                $ips = $ips->push($this->fqdn);
-            } elseif ($dnsRecords = gethostbynamel($this->fqdn)) {
-                $ips = $ips->concat($dnsRecords);
-            }
 
             try {
                 $addresses = Http::daemon($this)->connectTimeout(1)->timeout(1)->get('/api/system/ips')->json();
                 $ips = $ips->concat(fluent($addresses)->get('ip_addresses'));
             } catch (Exception) {
-                // pass
+                if (is_ip($this->fqdn)) {
+                    $ips->push($this->fqdn);
+                }
             }
-
-            $ips->push('0.0.0.0');
 
             // Only IPV4
             $ips = $ips->filter(fn (string $ip) => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
+
+            $ips->push('0.0.0.0');
 
             return $ips->unique()->all();
         });

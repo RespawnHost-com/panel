@@ -5,17 +5,15 @@ namespace App\Tests\Integration\Jobs\Schedule;
 use App\Enums\ServerState;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
-use GuzzleHttp\Psr7\Request;
 use App\Models\Task;
-use GuzzleHttp\Psr7\Response;
 use App\Models\Server;
 use App\Models\Schedule;
 use Illuminate\Support\Facades\Bus;
 use App\Jobs\Schedule\RunTaskJob;
-use GuzzleHttp\Exception\BadResponseException;
 use App\Tests\Integration\IntegrationTestCase;
 use App\Repositories\Daemon\DaemonPowerRepository;
-use App\Exceptions\Http\Connection\DaemonConnectionException;
+use Illuminate\Http\Client\ConnectionException;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class RunTaskJobTest extends IntegrationTestCase
 {
@@ -65,9 +63,7 @@ class RunTaskJobTest extends IntegrationTestCase
         Bus::dispatchSync($job);
     }
 
-    /**
-     * @dataProvider isManualRunDataProvider
-     */
+    #[DataProvider('isManualRunDataProvider')]
     public function testJobIsExecuted(bool $isManualRun): void
     {
         $server = $this->createServerModel();
@@ -106,9 +102,7 @@ class RunTaskJobTest extends IntegrationTestCase
         $this->assertTrue(CarbonImmutable::now()->isSameAs(\DateTimeInterface::ATOM, $schedule->last_run_at));
     }
 
-    /**
-     * @dataProvider isManualRunDataProvider
-     */
+    #[DataProvider('isManualRunDataProvider')]
     public function testExceptionDuringRunIsHandledCorrectly(bool $continueOnFailure): void
     {
         $server = $this->createServerModel();
@@ -126,12 +120,10 @@ class RunTaskJobTest extends IntegrationTestCase
         $mock = \Mockery::mock(DaemonPowerRepository::class);
         $this->instance(DaemonPowerRepository::class, $mock);
 
-        $mock->expects('setServer->send')->andThrow(
-            new DaemonConnectionException(new BadResponseException('Bad request', new Request('GET', '/test'), new Response()))
-        );
+        $mock->expects('setServer->send')->andThrow(new ConnectionException());
 
         if (!$continueOnFailure) {
-            $this->expectException(DaemonConnectionException::class);
+            $this->expectException(ConnectionException::class);
         }
 
         Bus::dispatchSync(new RunTaskJob($task));

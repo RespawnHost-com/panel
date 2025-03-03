@@ -12,7 +12,6 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Support\Number;
 
 class ListNodes extends ListRecords
 {
@@ -28,37 +27,18 @@ class ListNodes extends ListRecords
                     ->label('UUID')
                     ->searchable()
                     ->hidden(),
-                NodeHealthColumn::make('health'),
+                NodeHealthColumn::make('health')->label(trans('admin/node.table.health')),
                 TextColumn::make('name')
+                    ->label(trans('admin/node.table.name'))
                     ->icon('tabler-server-2')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('fqdn')
                     ->visibleFrom('md')
-                    ->label('Address')
+                    ->label(trans('admin/node.table.address'))
                     ->icon('tabler-network')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('memory')
-                    ->visibleFrom('sm')
-                    ->icon('tabler-device-desktop-analytics')
-                    ->numeric()
-                    ->suffix(config('panel.use_binary_prefix') ? ' GiB' : ' GB')
-                    ->formatStateUsing(fn ($state) => Number::format($state / (config('panel.use_binary_prefix') ? 1024 : 1000), maxPrecision: 2, locale: auth()->user()->language))
-                    ->sortable(),
-                TextColumn::make('disk')
-                    ->visibleFrom('sm')
-                    ->icon('tabler-file')
-                    ->numeric()
-                    ->suffix(config('panel.use_binary_prefix') ? ' GiB' : ' GB')
-                    ->formatStateUsing(fn ($state) => Number::format($state / (config('panel.use_binary_prefix') ? 1024 : 1000), maxPrecision: 2, locale: auth()->user()->language))
-                    ->sortable(),
-                TextColumn::make('cpu')
-                    ->visibleFrom('sm')
-                    ->icon('tabler-cpu')
-                    ->numeric()
-                    ->suffix(' %')
-                    ->sortable(),
                 IconColumn::make('scheme')
                     ->visibleFrom('xl')
                     ->label('SSL')
@@ -66,13 +46,14 @@ class ListNodes extends ListRecords
                     ->falseIcon('tabler-lock-open-off')
                     ->state(fn (Node $node) => $node->scheme === 'https'),
                 IconColumn::make('public')
+                    ->label(trans('admin/node.table.public'))
                     ->visibleFrom('lg')
                     ->trueIcon('tabler-eye-check')
                     ->falseIcon('tabler-eye-cancel'),
                 TextColumn::make('servers_count')
                     ->visibleFrom('sm')
                     ->counts('servers')
-                    ->label('Servers')
+                    ->label(trans('admin/node.table.servers'))
                     ->sortable()
                     ->icon('tabler-brand-docker'),
             ])
@@ -81,10 +62,10 @@ class ListNodes extends ListRecords
             ])
             ->emptyStateIcon('tabler-server-2')
             ->emptyStateDescription('')
-            ->emptyStateHeading('No Nodes')
+            ->emptyStateHeading(trans('admin/node.no_nodes'))
             ->emptyStateActions([
                 CreateAction::make('create')
-                    ->label('Create Node')
+                    ->label(trans('admin/node.create_action', ['action' => trans('filament-actions::create.single.modal.actions.create.label')]))
                     ->button(),
             ]);
     }
@@ -93,7 +74,7 @@ class ListNodes extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Create Node')
+                ->label(trans('admin/node.create_action', ['action' => trans('filament-actions::create.single.modal.actions.create.label')]))
                 ->hidden(fn () => Node::count() <= 0),
         ];
     }

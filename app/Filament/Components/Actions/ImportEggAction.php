@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components\Actions;
 
+use App\Models\Egg;
 use App\Services\Eggs\Sharing\EggImporterService;
 use Exception;
 use Filament\Actions\Action;
@@ -10,7 +11,6 @@ use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ImportEggAction extends Action
 {
@@ -23,7 +23,7 @@ class ImportEggAction extends Action
     {
         parent::setUp();
 
-        $this->label('Import');
+        $this->label(trans('filament-actions::import.modal.actions.import.label'));
 
         $this->authorize(fn () => auth()->user()->can('import egg'));
 
@@ -31,22 +31,23 @@ class ImportEggAction extends Action
             Tabs::make('Tabs')
                 ->contained(false)
                 ->tabs([
-                    Tab::make('From File')
+                    Tab::make(trans('admin/egg.import.file'))
                         ->icon('tabler-file-upload')
                         ->schema([
                             FileUpload::make('egg')
                                 ->label('Egg')
-                                ->hint('This should be the json file ( egg-minecraft.json )')
+                                ->hint(trans('admin/egg.import.egg_help'))
                                 ->acceptedFileTypes(['application/json'])
                                 ->storeFiles(false)
                                 ->multiple(),
                         ]),
-                    Tab::make('From URL')
+                    Tab::make(trans('admin/egg.import.url'))
                         ->icon('tabler-world-upload')
                         ->schema([
                             TextInput::make('url')
-                                ->label('URL')
-                                ->hint('This URL should point to a single json file')
+                                ->default(fn (Egg $egg) => $egg->update_url)
+                                ->label(trans('admin/egg.import.url'))
+                                ->hint(trans('admin/egg.import.url_help'))
                                 ->url(),
                         ]),
                 ]),
@@ -55,7 +56,6 @@ class ImportEggAction extends Action
         $this->action(function (array $data, EggImporterService $eggImportService): void {
             try {
                 if (!empty($data['egg'])) {
-                    /** @var TemporaryUploadedFile[] $eggFile */
                     $eggFile = $data['egg'];
 
                     foreach ($eggFile as $file) {
@@ -68,7 +68,7 @@ class ImportEggAction extends Action
                 }
             } catch (Exception $exception) {
                 Notification::make()
-                    ->title('Import Failed')
+                    ->title(trans('admin/egg.import.import_failed'))
                     ->body($exception->getMessage())
                     ->danger()
                     ->send();
@@ -79,7 +79,7 @@ class ImportEggAction extends Action
             }
 
             Notification::make()
-                ->title('Import Success')
+                ->title(trans('admin/egg.import.import_success'))
                 ->success()
                 ->send();
         });
